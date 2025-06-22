@@ -1,6 +1,9 @@
 import { PrismaClient } from '@prisma/client'
 import { Router } from 'express'
 import { z } from 'zod'
+import bcrypt from 'bcrypt'
+import { verificaToken } from '../middlewares/verificaToken';
+import { verificaNivel } from '../middlewares/verificaNivel';
 
 const prisma = new PrismaClient()
 // const prisma = new PrismaClient({
@@ -63,7 +66,9 @@ router.get("/", async (req, res) => {
   }
 })
 
-router.post("/", async (req, res) => {
+router.post("/",  async (req, res) => {
+  // verificaNivel(3),
+  //verificaToken,
 
   const valida = feiranteSchema.safeParse(req.body)
   if (!valida.success) {
@@ -74,21 +79,26 @@ router.post("/", async (req, res) => {
   const { nome, email, senha, telefone } = valida.data
 
   try {
+    const salt = await bcrypt.genSalt(10);
+    const senhaHash = await bcrypt.hash(senha, salt);
     const feirante = await prisma.feirante.create({
       data: {
         nome,
         email,
-        senha,
+        senha: senhaHash,
         telefone
       }
     })
-    res.status(201).json(feirante)
+    const { senha: _, ...feiranteSemSenha } = feirante;
+    res.status(201).json(feiranteSemSenha)
   } catch (error) {
     res.status(400).json({ error })
   }
 })
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", verificaToken, async (req, res) => {
+  // verificaToken,
+  // verificaNivel(3),
   const { id } = req.params
 
   try {
@@ -203,4 +213,29 @@ router.get("/:id", async (req, res) => {
   }
 })
 
+router.get("/:id/mercadorias", async (req, res) => {
+  
+  const { id } = req.params;
+
+  try {
+    const mercadoriasDoFeirante = await prisma.mercadoria.findMany({
+      
+      where: {
+        
+        feirante_id: Number(id),
+      },
+    
+      select: {
+        id: true,
+        nome: true,
+        preco: true,
+        quantidade: true,
+      },
+    });
+
+    res.status(200).json(mercadoriasDoFeirante);
+  } catch (error) {
+    res.status(500).json({ erro: error });
+  }
+});
 export default router

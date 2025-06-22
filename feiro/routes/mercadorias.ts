@@ -162,4 +162,31 @@ router.get("/:id", async (req, res) => {
   }
 })
 
+router.patch("/:id", async (req, res) => {
+  const { id } = req.params;
+
+  const dadosAlteracao = req.body;
+
+  const camposPermitidos = ['nome', 'preco', 'quantidade'];
+  const campoASerAlterado = Object.keys(dadosAlteracao)[0]; 
+
+  if (!camposPermitidos.includes(campoASerAlterado)) {
+    return res.status(400).json({ erro: `O campo '${campoASerAlterado}' não pode ser alterado.` });
+  }
+
+  try {
+    const mercadoriaAtualizada = await prisma.mercadoria.update({
+      where: {
+        id: Number(id),
+      },
+  
+      data: dadosAlteracao,
+    });
+    
+    res.status(200).json(mercadoriaAtualizada);
+  } catch (error) {
+    res.status(500).json({ error });
+  }
+});
+
 export default router
