@@ -11,19 +11,31 @@ datasource db {
 }
 
 model Feirante {
-  id                Int          @id @default(autoincrement())
-  nome              String       @db.VarChar(60)
-  email             String       @db.VarChar(60)
-  senha             String       @db.VarChar(60)
-  telefone          String       @db.VarChar(60)
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt()
+  id                Int             @id @default(autoincrement())
+  nome              String          @db.VarChar(60)
+  email             String          @db.VarChar(60)
+  senha             String          @db.VarChar(60)
+  telefone          String          @db.VarChar(60)
+  endereco          String          @db.VarChar(60)
+  banca             String?         @db.VarChar(100)
+  avaliacao         Float?          @default(0)
+  totalAvaliacoes   Int?            @default(0)
+  foto              String?         @db.Text
+  avatar            String?         @db.Text
+  especialidade     String?         @db.VarChar(100)
+  status            StatusFeirante? @default(Aberto)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt()
   mercadorias       Mercadoria[]
   fotos_mercadoria  FotoMercadoria[]
   // usuario           Usuario      @relation(fields: [usuario_id], references: [id])
   // usuario_id        String
-  admin       Admin?    @relation(fields: [adminId], references: [id])
-  adminId     String?    @db.VarChar(36)
+  admin             Admin?          @relation(fields: [adminId], references: [id])
+  adminId           String?         @db.VarChar(36)
+  feiraId           Int?
+  feira             Feira?          @relation(fields: [feiraId], references: [id])
+  cestas            Cesta[]         @relation("FeiranteCestas")
+  CestaRecorrente   CestaRecorrente[]
   @@map("feirantes")
 }
 
@@ -33,24 +45,55 @@ model Mercadoria {
   preco               Decimal            @db.Decimal(10, 2)
   quantidade          Decimal            @db.Decimal(10, 2)
   categoria           Categoria          @default(FRUTAS)
+  unidade             Unidade            @default(UN)
+  foto                String             @db.Text
+  emoji               String?            @db.VarChar(10)
+  destaque            Boolean            @default(true)
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt()
-  foto                String
-  feirante            Feirante          @relation(fields: [feirante_id], references: [id])
+  feirante            Feirante           @relation(fields: [feirante_id], references: [id])
   feirante_id         Int
-  destaque            Boolean            @default(true)
   fotos               FotoMercadoria[]
   // usuario             Usuario      @relation(fields: [usuario_id], references: [id])
   // usuario_id          String
-  pedidos             Pedido[]
+  cestas              Cesta[]            @relation("CestaToMercadoria")
+  cestasRecorrentes   CestaRecorrente[] @relation("CestaRecorrenteToMercadoria")
+  pedidoItems        PedidoItem[]
+  carrinho            Carrinho[]
   @@map("mercadorias")
 }
 
-enum Categoria {
-  FRUTAS
-  LEGUMES
-  VERDURAS
-  TEMPEROS
+model Cesta {
+  id              Int          @id @default(autoincrement())
+  nome            String       @db.VarChar(100)
+  preco           Decimal      @db.Decimal(10, 2)
+  desconto        String?      @db.VarChar(50)
+  imagem          String?      @db.Text
+  emoji           String?      @db.VarChar(10)
+  categoria       String?      @db.VarChar(50)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  feirante        Feirante     @relation("FeiranteCestas", fields: [feirante_id], references: [id])
+  feirante_id     Int
+  mercadorias     Mercadoria[] @relation("CestaToMercadoria")
+  @@map("cestas")
+}
+
+model CestaRecorrente {
+    id Int @id @default(autoincrement())
+    nome String @db.VarChar(100)
+    frequencia String @db.VarChar(50) // Semanal, Quinzenal
+    dia_entrega String @db.VarChar(50) // Segunda-feira, etc.
+    preco Decimal @db.Decimal(10, 2)
+    ativa Boolean @default(true)
+    createdAt   DateTime     @default(now())
+    updatedAt   DateTime     @updatedAt
+    usuario_id String @db.VarChar(36)
+    usuario Usuario @relation(fields: [usuario_id], references: [id])
+    feirante_id Int
+    feirante Feirante @relation(fields: [feirante_id], references: [id])
+    mercadorias Mercadoria[] @relation("CestaRecorrenteToMercadoria")
+    @@map("cestas_recorrentes")
 }
 
 model FotoMercadoria {
@@ -81,35 +124,69 @@ model Usuario {
   // mercadorias         Mercadoria[]
   // feirantes           Feirante[]
   pedidos             Pedido[]
+  carrinho            Carrinho[]
+  cestas_recorrentes  CestaRecorrente[]
   @@map("usuarios") 
 }
 
 model Pedido {
+  id          Int      @id @default(autoincrement())
+  valor_total Decimal  @db.Decimal(10, 2)
+  status      StatusPedido @default(PENDENTE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime? @updatedAt
+
+  usuario_id  String   @db.VarChar(36)
+  usuario     Usuario  @relation(fields: [usuario_id], references: [id])
+  
+  adminId     String?  @db.VarChar(36)
+  admin       Admin?   @relation(fields: [adminId], references: [id])
+
+  items       PedidoItem[]
+
+  @@map("pedidos")
+}
+
+// model Pedido {
+//   id             Int                @id @default(autoincrement())
+//   quantidade     Decimal            @db.Decimal(10, 2) @default(0.00)
+//   unidade_medida  String            @default("UN")
+//   status         Status             @default(EM_PREPARACAO)
+//   createdAt      DateTime           @default(now())
+//   updatedAt      DateTime?          @updatedAt()
+//   mercadoria     Mercadoria         @relation(fields: [mercadoria_id], references: [id])
+//   mercadoria_id  Int
+//   usuario        Usuario            @relation(fields: [usuario_id], references: [id])
+//   usuario_id     String             @db.VarChar(36)
+//   admin       Admin?    @relation(fields: [adminId], references: [id])
+//   adminId     String?    @db.VarChar(36)
+//   @@map("pedidos")
+// }
+
+model PedidoItem {
+  id            Int      @id @default(autoincrement())
+  quantidade    Decimal  @db.Decimal(10, 2)
+  preco_unitario Decimal @db.Decimal(10, 2)
+  
+  pedido_id     Int
+  pedido        Pedido   @relation(fields: [pedido_id], references: [id], onDelete: Cascade)
+
+  mercadoria_id Int
+  mercadoria    Mercadoria @relation(fields: [mercadoria_id], references: [id])
+
+  @@map("pedido_items")
+}
+
+model Carrinho {
   id             Int                @id @default(autoincrement())
   quantidade     Decimal            @db.Decimal(10, 2) @default(0.00)
-  unidade_medida  String            @default("UN")
-  status         Status             @default(EM_PREPARACAO)
   createdAt      DateTime           @default(now())
   updatedAt      DateTime?          @updatedAt()
   mercadoria     Mercadoria         @relation(fields: [mercadoria_id], references: [id])
   mercadoria_id  Int
   usuario        Usuario            @relation(fields: [usuario_id], references: [id])
   usuario_id     String             @db.VarChar(36)
-  admin       Admin?    @relation(fields: [adminId], references: [id])
-  adminId     String?    @db.VarChar(36)
-  @@map("pedidos")
-}
-
-
-enum Status {
-  EM_ANDAMENTO
-  FINALIZADO
-  CANCELADO
-  PENDENTE
-  ENTREGUE
-  EM_PREPARACAO
-  EM_ROTA
-  RETORNANDO
+  @@map("carrinho")
 }
 
 model Admin {
@@ -123,4 +200,54 @@ model Admin {
   Feirante      Feirante[]
   pedido        Pedido[]
   @@map("admins")
+}
+
+model Feira {
+  id        Int       @id @default(autoincrement())
+  nome      String    @db.VarChar(100)
+  endereco  String    @db.VarChar(255)
+  status    StatusFeira @default(Aberto)
+  horario   String    @db.VarChar(100)
+  latitude  Float
+  longitude Float
+  imagem    String?   @db.Text
+  feirantes Feirante[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  @@map("feiras")
+
+}
+
+enum Categoria {
+  FRUTAS
+  LEGUMES
+  VERDURAS
+  TEMPEROS
+}
+
+enum Unidade {
+  UN
+  KG
+  CX
+}
+
+enum StatusPedido {
+  EM_ANDAMENTO
+  FINALIZADO
+  CANCELADO
+  PENDENTE
+  ENTREGUE
+  EM_PREPARACAO
+  EM_ROTA
+  RETORNANDO
+}
+
+enum StatusFeirante {
+  Aberto
+  Fechado
+}
+
+enum StatusFeira {
+  Aberto
+  Fechado
 }

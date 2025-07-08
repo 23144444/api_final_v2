@@ -1,169 +1,4 @@
-// import { PrismaClient, Status } from "@prisma/client"
-// import { Router } from "express"
-// import { z } from "zod"
-// import nodemailer from "nodemailer"
-
-// const prisma = new PrismaClient()
-// const router = Router()
-
-
-
-// // Validação de criação de pedido
-// const pedidoSchema = z.object({
-//   quantidade: z.number().min(0.01), 
-//   unidade_medida: z.string(),
-//   status: z.nativeEnum(Status),
-//   mercadoria_id: z.number(),
-//   usuario_id: z.string(),
-// })
-
-// // GET /pedido/ — listar todos os pedidos
-// router.get("/", async (req, res) => {
-//   try {
-//     const pedidos = await prisma.pedido.findMany({
-//       include: { usuario: true, mercadoria: true },
-//       orderBy: { id: 'desc' }
-//     })
-//     res.status(200).json(pedidos)
-//   } catch (error) {
-//     res.status(400).json({ erro: error })
-//   }
-// })
-
-// // POST /pedido/ — criar novo pedido
-// router.post("/", async (req, res) => {
-//   const valida = pedidoSchema.safeParse(req.body)
-//   if (!valida.success) {
-//     // Retorna um erro mais claro do que estava faltando
-//     res.status(400).json({ erro: "Dados inválidos", detalhes: valida.error.flatten().fieldErrors })
-//     return
-//   }
-//   try {
-//     const pedido = await prisma.pedido.create({
-//       data: valida.data
-//     })
-//     res.status(201).json(pedido)
-//   } catch (error) {
-//     res.status(400).json({ erro: error })
-//   }
-// })
-
-// // Função de envio de e-mail para atualização de status do pedido
-// async function enviaEmailPedido(
-//   nome: string,
-//   email: string,
-//   mercadoria: string,
-//   status: string
-// ) {
-//   const transporter = nodemailer.createTransport({
-//     // host: "sandbox.smtp.mailtrap.io",
-//     // port: 587,
-//     // secure: false,
-//     // auth: {
-//     //   user: "968f0dd8cc78d9",
-//     //   pass: "89ed8bfbf9b7f9"
-//     // }
-//     host: process.env.SMTP_HOST,
-//         port: Number(process.env.SMTP_PORT),
-//         secure: false,
-//         auth: {
-//           user: process.env.SMTP_USER,
-//           pass: process.env.SMTP_PASS,
-//         },
-//   })
-
-//   const info = await transporter.sendMail({
-//     // from: 'no-reply@seusistema.com',
-//     from: process.env.SMTP_FROM,
-//     to: email,
-//     subject: `Atualização do seu pedido: ${mercadoria}`,
-//     text: `Olá ${nome},\n\nSeu pedido da mercadoria "${mercadoria}" agora está com status: ${status}.`,
-//     html: `
-//       <h3>Olá, ${nome}</h3>
-//       <p>Sua mercadoria: <strong>${mercadoria}</strong></p>
-//       <p>Status do pedido: <strong>${status}</strong></p>
-//       <p>Obrigado por comprar conosco!</p>
-//     `
-//   })
-
-//   console.log("E-mail enviado: %s", info.messageId)
-// }
-
-// // PATCH /pedido/:id — atualizar status e/ou motoboy, e enviar e-mail
-// router.patch("/:id", async (req, res) => {
-//   const { id } = req.params
-//   const { status, motoboy_id } = req.body
-
-//   if (!status) {
-//     res.status(400).json({ erro: "Informe o novo status do pedido" })
-//     return
-//   }
-
-//   try {
-//     // Atualiza o pedido
-//     const pedido = await prisma.pedido.update({
-//       where: { id: Number(id) },
-//       data: {
-//         status
-//       }
-//     })
-
-//     // Busca dados para envio de e-mail
-//     const dados = await prisma.pedido.findUnique({
-//       where: { id: Number(id) },
-//       include: {
-//         usuario: true,
-//         mercadoria: true
-//       }
-//     })
-
-//     if (dados) {
-//       await enviaEmailPedido(
-//         dados.usuario.nome as string,
-//         dados.usuario.email as string,
-//         dados.mercadoria.nome as string,
-//         status
-//       )
-//     }
-
-//     res.status(200).json(pedido)
-//   } catch (error) {
-//     res.status(400).json({ erro: error })
-//   }
-// })
-
-// // GET /pedido/:usuarioId — pedidos de um usuario
-// router.get("/:usuario_id", async (req, res) => {
-//   const { usuario_id } = req.params
-//   try {
-//     const pedidos = await prisma.pedido.findMany({
-//       where: { usuario_id: String(usuario_id) },
-//       include: { mercadoria: true }
-//     })
-//     res.status(200).json(pedidos)
-//   } catch (error) {
-//     res.status(400).json({ erro: error })
-//   }
-// })
-
-// // DELETE /pedido/:id — remover pedido
-// router.delete("/:id", async (req, res) => {
-//   const { id } = req.params
-//   try {
-//     const pedido = await prisma.pedido.delete({
-//       where: { id: Number(id) }
-//     })
-//     res.status(200).json(pedido)
-//   } catch (error) {
-//     res.status(400).json({ erro: error })
-//   }
-// })
-
-// export default router
-
-
-
-import { PrismaClient, Status } from "@prisma/client"
+import { PrismaClient, StatusPedido } from "@prisma/client"
 import { Router } from "express"
 import { z } from "zod"
 import nodemailer from "nodemailer"
@@ -171,57 +6,101 @@ import nodemailer from "nodemailer"
 const prisma = new PrismaClient()
 const router = Router()
 
-// Validação de criação de pedido ATUALIZADA
-const pedidoSchema = z.object({
-  quantidade: z.number().min(0.01, { message: "Quantidade deve ser positiva." }),
-  unidade_medida: z.string().min(1, { message: "Unidade de medida é obrigatória." }),
-  status: z.nativeEnum(Status),
-  mercadoria_id: z.number(),
-  usuario_id: z.string(),
+const pedidoItemSchema = z.object({
+  mercadoria_id: z.number().int().positive(),
+  quantidade: z.number().positive(),
 });
 
-// GET /pedido/ — listar todos os pedidos
-router.get("/", async (req, res) => {
-  try {
-    const pedidos = await prisma.pedido.findMany({
-      include: { usuario: true, mercadoria: true },
-      orderBy: { id: 'desc' }
-    })
-    res.status(200).json(pedidos)
-  } catch (error) {
-    res.status(400).json({ erro: error })
-  }
-})
+const criarPedidoSchema = z.object({
+  usuario_id: z.string().uuid(),
+  items: z.array(pedidoItemSchema).min(1, { message: "O pedido deve ter pelo menos um item." }),
+});
 
-// POST /pedido/ — criar novo pedido (Rota Corrigida)
 router.post("/", async (req, res) => {
-  const result = pedidoSchema.safeParse(req.body);
+  const result = criarPedidoSchema.safeParse(req.body);
 
   if (!result.success) {
-    // Retorna um erro claro com os detalhes da validação
-    return res.status(400).json({ 
+    return res.status(400).json({
       erro: "Dados de entrada inválidos.",
-      detalhes: result.error.flatten().fieldErrors 
+      detalhes: result.error.flatten().fieldErrors
     });
   }
 
+  const { usuario_id, items } = result.data;
+
   try {
-    const pedido = await prisma.pedido.create({
-      data: result.data
+    const novoPedido = await prisma.$transaction(async (tx) => {
+      const idsMercadorias = items.map(item => item.mercadoria_id);
+      const mercadorias = await tx.mercadoria.findMany({
+        where: {
+          id: { in: idsMercadorias }
+        }
+      });
+
+      if (mercadorias.length !== idsMercadorias.length) {
+        throw new Error("Uma ou mais mercadorias não foram encontradas.");
+      }
+
+      let valor_total = 0;
+      const pedidoItemsData = items.map(item => {
+        const mercadoria = mercadorias.find(m => m.id === item.mercadoria_id);
+        if (!mercadoria) throw new Error(`Mercadoria com id ${item.mercadoria_id} não encontrada.`);
+        
+        const precoItem = Number(mercadoria.preco) * item.quantidade;
+        valor_total += precoItem;
+
+        if (Number(mercadoria.quantidade) < item.quantidade) {
+            throw new Error(`Estoque insuficiente para a mercadoria "${mercadoria.nome}".`);
+        }
+
+        return {
+          mercadoria_id: item.mercadoria_id,
+          quantidade: item.quantidade,
+          preco_unitario: mercadoria.preco,
+        };
+      });
+
+      const pedido = await tx.pedido.create({
+        data: {
+          usuario_id,
+          valor_total,
+          status: 'PENDENTE',
+        },
+      });
+
+      await tx.pedidoItem.createMany({
+        data: pedidoItemsData.map(itemData => ({
+          ...itemData,
+          pedido_id: pedido.id
+        }))
+      });
+
+       for (const item of items) {
+        await tx.mercadoria.update({
+            where: { id: item.mercadoria_id },
+            data: { quantidade: { decrement: item.quantidade } }
+        });
+       }
+
+      return tx.pedido.findUnique({
+        where: { id: pedido.id },
+        include: { items: { include: { mercadoria: true } }, usuario: true }
+      });
     });
-    res.status(201).json(pedido);
-  } catch (error) {
-    console.error("Erro no Prisma ao criar pedido:", error);
-    res.status(400).json({ erro: "Não foi possível criar o pedido.", detalhes: error });
+
+    res.status(201).json(novoPedido);
+  } catch (error: any) {
+    console.error("Erro ao criar pedido:", error);
+    res.status(400).json({ erro: "Não foi possível criar o pedido.", detalhes: error.message });
   }
 });
 
 // Função de envio de e-mail para atualização de status do pedido
-async function enviaEmailPedido(
-  nome: string,
-  email: string,
-  mercadoria: string,
-  status: string
+async function enviaEmailAtualizacaoStatus(
+  nomeUsuario: string,
+  emailUsuario: string,
+  idPedido: number,
+  novoStatus: string
 ) {
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
@@ -233,72 +112,37 @@ async function enviaEmailPedido(
     },
   })
 
+  // Dados e-mail
+  const statusFormatado = novoStatus.replace("_", " ").toLowerCase();
+
   const info = await transporter.sendMail({
     from: process.env.SMTP_FROM,
-    to: email,
-    subject: `Atualização do seu pedido: ${mercadoria}`,
-    text: `Olá ${nome},\n\nSeu pedido da mercadoria "${mercadoria}" agora está com status: ${status}.`,
+    to: emailUsuario,
+    subject: `Atualização sobre seu pedido #${idPedido}`,
+    text: `Olá ${nomeUsuario},\n\nO status do seu pedido #${idPedido} foi atualizado para: ${statusFormatado}.`,
     html: `
-      <h3>Olá, ${nome}</h3>
-      <p>Sua mercadoria: <strong>${mercadoria}</strong></p>
-      <p>Status do pedido: <strong>${status}</strong></p>
+      <h3>Olá, ${nomeUsuario}!</h3>
+      <p>Temos uma novidade sobre o seu pedido de número <strong>#${idPedido}</strong>.</p>
+      <p>Novo status: <strong>${statusFormatado.charAt(0).toUpperCase() + statusFormatado.slice(1)}</strong></p>
       <p>Obrigado por comprar conosco!</p>
     `
   })
 
-  console.log("E-mail enviado: %s", info.messageId)
+  console.log("E-mail de atualização de status enviado: %s", info.messageId)
 }
 
-// PATCH /pedido/:id — atualizar status e/ou motoboy, e enviar e-mail
-router.patch("/:id", async (req, res) => {
-  const { id } = req.params
-  const { status } = req.body // Removido motoboy_id que não estava sendo usado
-
-  if (!status) {
-    return res.status(400).json({ erro: "Informe o novo status do pedido" })
-  }
-
-  try {
-    // Atualiza o pedido
-    const pedido = await prisma.pedido.update({
-      where: { id: Number(id) },
-      data: {
-        status
-      }
-    })
-
-    // Busca dados para envio de e-mail
-    const dados = await prisma.pedido.findUnique({
-      where: { id: Number(id) },
-      include: {
-        usuario: true,
-        mercadoria: true
-      }
-    })
-
-    if (dados) {
-      await enviaEmailPedido(
-        dados.usuario.nome as string,
-        dados.usuario.email as string,
-        dados.mercadoria.nome as string,
-        status
-      )
-    }
-
-    res.status(200).json(pedido)
-  } catch (error) {
-    res.status(400).json({ erro: error })
-  }
-})
-
-// GET /pedido/:usuarioId — pedidos de um usuario
-router.get("/:usuario_id", async (req, res) => {
-  const { usuario_id } = req.params
+router.get("/", async (req, res) => {
   try {
     const pedidos = await prisma.pedido.findMany({
-      where: { usuario_id: String(usuario_id) },
-      include: { mercadoria: true },
-      orderBy: { createdAt: 'desc' } // Ordenar por data de criação é mais comum
+      include: {
+        usuario: true,
+        items: {
+            include: {
+                mercadoria: true
+            }
+        }
+       },
+      orderBy: { id: 'desc' }
     })
     res.status(200).json(pedidos)
   } catch (error) {
@@ -306,17 +150,111 @@ router.get("/:usuario_id", async (req, res) => {
   }
 })
 
-// DELETE /pedido/:id — remover pedido
-router.delete("/:id", async (req, res) => {
-  const { id } = req.params
-  try {
-    const pedido = await prisma.pedido.delete({
-      where: { id: Number(id) }
-    })
-    res.status(200).json(pedido)
-  } catch (error) {
-    res.status(400).json({ erro: "Não foi possível remover o pedido.", detalhes: error })
-  }
-})
 
-export default router
+router.get("/usuario/:usuario_id", async (req, res) => {
+    const { usuario_id } = req.params
+    try {
+      const pedidos = await prisma.pedido.findMany({
+        where: { usuario_id: String(usuario_id) },
+        include: {
+            items: {
+                include: {
+                    mercadoria: true
+                }
+            }
+        },
+        orderBy: { createdAt: 'desc' }
+      })
+      res.status(200).json(pedidos)
+    } catch (error) {
+      res.status(400).json({ erro: error })
+    }
+  })
+
+// atualizar status COM ENVIO DE E-MAIL
+router.patch("/:id", async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body as { status: StatusPedido };
+
+    if (!status || !Object.values(StatusPedido).includes(status)) {
+        return res.status(400).json({ erro: "Informe um status válido para o pedido." });
+    }
+
+    try {
+        const pedidoAtualizado = await prisma.pedido.update({
+            where: { id: Number(id) },
+            data: { status },
+            include: { usuario: true } 
+        });
+
+        
+        if (pedidoAtualizado && pedidoAtualizado.usuario) {
+            await enviaEmailAtualizacaoStatus(
+                pedidoAtualizado.usuario.nome,
+                pedidoAtualizado.usuario.email,
+                pedidoAtualizado.id,
+                pedidoAtualizado.status
+            );
+        }
+        
+        res.status(200).json(pedidoAtualizado);
+    } catch (error) {
+        console.error("Erro ao atualizar pedido:", error);
+        res.status(400).json({ erro: "Não foi possível atualizar o status do pedido." });
+    }
+});
+
+const pedidoUpdateSchema = z.object({
+    status: z.nativeEnum(StatusPedido),
+    adminId: z.string().uuid().optional().nullable(),
+});
+
+router.put("/:id", async (req, res) => {
+    const { id } = req.params;
+    const result = pedidoUpdateSchema.safeParse(req.body);
+
+    if (!result.success) {
+        return res.status(400).json({ erro: "Dados inválidos", detalhes: result.error.flatten().fieldErrors });
+    }
+
+    try {
+        const pedidoAtualizado = await prisma.pedido.update({
+            where: { id: Number(id) },
+            data: result.data,
+            include: { usuario: true }
+        });
+
+        // Envia e-mail se o status foi atualizado
+        if (pedidoAtualizado && pedidoAtualizado.usuario) {
+            await enviaEmailAtualizacaoStatus(
+                pedidoAtualizado.usuario.nome,
+                pedidoAtualizado.usuario.email,
+                pedidoAtualizado.id,
+                pedidoAtualizado.status
+            );
+        }
+
+        res.status(200).json(pedidoAtualizado);
+    } catch (error) {
+        console.error("Erro ao atualizar pedido:", error);
+        res.status(400).json({ erro: "Não foi possível atualizar o pedido.", detalhes: error });
+    }
+});
+
+router.delete("/:id", async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        // A deleção em cascata configurada no schema irá remover os PedidoItems associados
+        await prisma.pedido.delete({
+            where: { id: Number(id) }
+        });
+        res.status(200).json({ message: "Pedido deletado com sucesso." });
+    } catch (error) {
+        console.error("Erro ao deletar pedido:", error);
+        res.status(500).json({ erro: "Não foi possível deletar o pedido.", detalhes: error });
+    }
+});
+
+
+export default router;

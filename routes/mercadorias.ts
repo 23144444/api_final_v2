@@ -1,4 +1,4 @@
-import { Categoria, PrismaClient } from '@prisma/client'
+import { Unidade,Categoria, PrismaClient } from '@prisma/client'
 import { Router } from 'express'
 import { z } from 'zod'
 
@@ -12,9 +12,11 @@ const mercadoriaSchema = z.object({
   preco: z.number(),
   quantidade: z.number(),
   categoria: z.nativeEnum(Categoria).optional(),
+  unidade: z.nativeEnum(Unidade).optional(),
   foto: z.string(),
   destaque: z.boolean().optional(),
-  feirante_id: z.number()
+  feirante_id: z.number(),
+  emoji: z.string().optional()
   // usuario_id: z.string()
 })
 
@@ -32,6 +34,31 @@ router.get("/", async (req, res) => {
   }
 })
 
+router.get("/feirantes/:feiranteId", async (req, res) => {
+  // Captura o id do feirante a partir dos parâmetros da rota
+  const { feiranteId } = req.params;
+
+  try {
+    // Busca no banco de dados todas as mercadorias que correspondem ao feirante_id
+    const mercadoriasDoFeirante = await prisma.mercadoria.findMany({
+      where: {
+        // Converte o id para número, pois ele vem como string da URL
+        feirante_id: Number(feiranteId),
+      },
+      include: {
+        // Você pode incluir outros dados se precisar, mas o feirante aqui seria redundante
+        fotos: true,
+      },
+    });
+
+    // Se não encontrar nenhuma mercadoria, pode retornar um array vazio (o que é normal)
+    res.status(200).json(mercadoriasDoFeirante);
+
+  } catch (error) {
+    res.status(500).json({ erro: "Ocorreu um erro ao buscar as mercadorias do feirante.", detalhes: error });
+  }
+});
+
 router.post("/", async (req, res) => {
 
   const valida = mercadoriaSchema.safeParse(req.body)
@@ -40,13 +67,13 @@ router.post("/", async (req, res) => {
     return
   }
 
-  const { nome, preco, quantidade, categoria = 'FRUTAS', foto,
+  const { nome, preco, quantidade, categoria = 'FRUTAS', unidade = 'UN', foto,
     destaque = true,  feirante_id } = valida.data
 
   try {
     const mercadoria = await prisma.mercadoria.create({
       data: {
-        nome, preco, quantidade, categoria, foto, destaque, feirante_id,
+        nome, preco, quantidade, categoria, unidade, foto, destaque, feirante_id
       }
     })
     res.status(201).json(mercadoria)

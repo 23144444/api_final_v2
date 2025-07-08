@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, StatusFeirante } from '@prisma/client'
 import { Router } from 'express'
 import { z } from 'zod'
 
@@ -49,14 +49,27 @@ const feiranteSchema = z.object({
       .regex(/^\d{10,11}$/, {
         message: "Telefone deve conter apenas números e ter entre 10 e 11 dígitos"
       }),
+  endereco: z.string().min(5, { message: "Endereço deve ter no mínimo 5 caracteres" }),
     // usuario_id: z.string(),
-  adminId: z.string().optional()
+  adminId: z.string().optional(),
+  banca: z.string().optional(),
+  avaliacao: z.number().optional(),
+  totalAvaliacoes: z.number().optional(),
+  foto: z.string().url().optional(),
+  avatar: z.string().url().optional(),
+  especialidade: z.string().optional(),
+  status: z.nativeEnum(StatusFeirante).optional(),
+  feiraId: z.number().optional(),
 })
 
 router.get("/", async (req, res) => {
   try {
     const feirantes = await prisma.feirante.findMany({
-    
+    include: {
+            feira: true,
+            mercadorias: true,
+            cestas: true
+        }
     })
     res.status(200).json(feirantes)
   } catch (error) {
@@ -72,7 +85,7 @@ router.post("/", async (req, res) => {
     return
   }
 
-  const { nome, email, senha, telefone, adminId } = valida.data
+  const { nome, email, senha, telefone, endereco } = valida.data
 
   try {
     const feirante = await prisma.feirante.create({
@@ -81,7 +94,7 @@ router.post("/", async (req, res) => {
         email,
         senha,
         telefone,
-        adminId
+        endereco,
       }
     })
     res.status(201).json(feirante)
@@ -133,7 +146,7 @@ router.put("/:id", async (req, res) => {
   if (!valida.success) {
     return res.status(400).json({ erro: valida.error })
   }
-  const { nome, email, senha, telefone, adminId } = valida.data
+  const { nome, email, senha, telefone, endereco, adminId } = valida.data
 
   try {
     // Busca feirante + localização atual para obter o ID
@@ -152,6 +165,7 @@ router.put("/:id", async (req, res) => {
         email,
         senha,
         telefone,
+        endereco,
         adminId
       }
     })
